@@ -8,12 +8,12 @@ from .commons import appdata_dir, cursor_position, virtual_screen
 ACTIONS = ("left_click", "right_click", "double_click", "middle_click", "scroll_up", "scroll_down")
 
 ACTION_NAMES = {
-    "left_click": "Левая кнопка",
-    "right_click": "Правая кнопка",
-    "double_click": "Двойной клик",
-    "middle_click": "Средняя кнопка",
-    "scroll_up": "Прокрутка вверх",
-    "scroll_down": "Прокрутка вниз",
+    "left_click": "Left button",
+    "right_click": "Right button",
+    "double_click": "Double click",
+    "middle_click": "Middle button",
+    "scroll_up": "Scroll up",
+    "scroll_down": "Scroll down",
 }
 
 DEFAULT_BINDINGS = {
@@ -32,15 +32,15 @@ KEY_NAMES = {
     0x09: "Tab",
     0x0D: "Enter",
     0x1B: "Esc",
-    0x20: "Пробел",
+    0x20: "Space",
     0x21: "PageUp",
     0x22: "PageDown",
     0x23: "End",
     0x24: "Home",
-    0x25: "Стрелка влево",
-    0x26: "Стрелка вверх",
-    0x27: "Стрелка вправо",
-    0x28: "Стрелка вниз",
+    0x25: "Left arrow",
+    0x26: "Up arrow",
+    0x27: "Right arrow",
+    0x28: "Down arrow",
     0x2D: "Insert",
     0x2E: "Delete",
     0x90: "NumLock",
@@ -57,7 +57,7 @@ def _key_name(vk):
         return chr(vk)
     if 0x70 <= vk <= 0x87:
         return "F%d" % (vk - 0x70 + 1)
-    return "Клавиша %d" % vk
+    return "Key %d" % vk
 
 
 def _clamp(value, low, high):

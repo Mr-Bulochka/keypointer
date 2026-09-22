@@ -4,8 +4,8 @@ import pystray
 
 from .art import draw_tray_icon
 
-MENU_SETTINGS = "Настройки…"
-MENU_QUIT = "Выйти"
+MENU_SETTINGS = "Settings…"
+MENU_QUIT = "Quit"
 
 
 class Tray:
@@ -45,7 +45,7 @@ class Tray:
                 pass
 
     def _magnet_label(self):
-        return "Магнит: " + ("вкл" if self._magnet_enabled else "выкл")
+        return "Magnet: " + ("on" if self._magnet_enabled else "off")
 
     def _run(self):
         menu = pystray.Menu(

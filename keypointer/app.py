@@ -56,8 +56,8 @@ class App:
         if not self._hook.start():
             messagebox.showwarning(
                 "Keypointer",
-                "Не удалось установить глобальную клавиатуру. "
-                "Возможно, приложение уже запущено.",
+                "Failed to install the global keyboard hook. "
+                "Another instance may already be running.",
             )
             if self._root.winfo_exists():
                 self._root.after(0, self._root.destroy)
@@ -65,7 +65,7 @@ class App:
         if not self._overlay.start():
             messagebox.showwarning(
                 "Keypointer",
-                "Не удалось создать оверлей курсора.",
+                "Failed to create the cursor overlay.",
             )
             if self._root.winfo_exists():
                 self._root.after(0, self._root.destroy)
@@ -82,7 +82,7 @@ class App:
             try:
                 closer()
             except Exception:
-                self._log.exception("ошибка при остановке")
+                self._log.exception("error while stopping")
 
     def _tick(self):
         if not self._running:
@@ -213,7 +213,7 @@ class App:
         try:
             self._hook.set_binding_keys([])
         except Exception:
-            self._log.exception("ошибка при отключении отслеживания клавиш")
+            self._log.exception("error while disabling key tracking")
         self._overlay.hide()
         settings_view.show_settings(
             self._root,
@@ -231,7 +231,7 @@ class App:
         try:
             self._hook.set_binding_keys(self._binding_keys())
         except Exception:
-            self._log.exception("ошибка при восстановлении отслеживания клавиш")
+            self._log.exception("error while re-enabling key tracking")
         self._resync()
 
     def _apply_settings(self, new):
@@ -240,12 +240,12 @@ class App:
         try:
             self._magnet.set_enabled(new.magnet_enabled)
         except Exception:
-            self._log.exception("ошибка при смене состояния магнита")
+            self._log.exception("error while toggling the magnet")
         self._tray.set_magnet(new.magnet_enabled)
         try:
             set_autostart(new.start_at_login)
         except OSError:
-            self._log.exception("не удалось обновить автозапуск")
+            self._log.exception("failed to update autostart")
         self._resync()
 
     def _toggle_magnet(self):
@@ -254,7 +254,7 @@ class App:
         try:
             self._store.save(self._settings)
         except OSError:
-            self._log.exception("не удалось сохранить настройки")
+            self._log.exception("failed to save settings")
 
     def _quit(self):
         self._running = False
