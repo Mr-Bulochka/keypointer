@@ -156,7 +156,13 @@ class KeyboardHook:
                         callback(vk, False, False)
                     return 1
                 if vk in movers:
-                    return user32.CallNextHookEx(self._handle, n_code, w_param, l_param)
+                    if (
+                        passthrough
+                        or user32.GetAsyncKeyState(0x5B) & 0x8000
+                        or user32.GetAsyncKeyState(0x5C) & 0x8000
+                    ):
+                        return user32.CallNextHookEx(self._handle, n_code, w_param, l_param)
+                    return 1
                 if vk in watch:
                     if passthrough:
                         return user32.CallNextHookEx(self._handle, n_code, w_param, l_param)

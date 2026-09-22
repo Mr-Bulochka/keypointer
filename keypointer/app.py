@@ -4,7 +4,7 @@ import time
 import tkinter as tk
 from tkinter import messagebox
 
-from . import art, model, mouse, settings_view
+from . import art, model, mouse, native_cursor, settings_view
 from .autostart import set_autostart
 from .commons import cursor_position, user32
 from .hook import KeyboardHook
@@ -70,6 +70,10 @@ class App:
             if self._root.winfo_exists():
                 self._root.after(0, self._root.destroy)
             return
+        try:
+            native_cursor.hide()
+        except Exception:
+            self._log.exception("error while hiding the system cursor")
         self._tray.start()
         self._magnet.start()
         self._resync()
@@ -78,6 +82,11 @@ class App:
 
     def stop(self):
         self._running = False
+        if native_cursor.hidden():
+            try:
+                native_cursor.restore()
+            except Exception:
+                self._log.exception("error while restoring the system cursor")
         for closer in (self._tray.stop, self._magnet.stop, self._overlay.stop, self._hook.stop):
             try:
                 closer()
@@ -215,6 +224,11 @@ class App:
         except Exception:
             self._log.exception("error while disabling key tracking")
         self._overlay.hide()
+        if native_cursor.hidden():
+            try:
+                native_cursor.restore()
+            except Exception:
+                self._log.exception("error while restoring the system cursor")
         settings_view.show_settings(
             self._root,
             self._store,
@@ -233,6 +247,10 @@ class App:
         except Exception:
             self._log.exception("error while re-enabling key tracking")
         self._resync()
+        try:
+            native_cursor.hide()
+        except Exception:
+            self._log.exception("error while hiding the system cursor")
 
     def _apply_settings(self, new):
         self._settings = new

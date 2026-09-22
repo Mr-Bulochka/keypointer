@@ -11,7 +11,7 @@ COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
 POLL_MS = 50
 
 KNOBS = (
-    ("sensitivity", 0.5, 4.0, 0.1, "Sensitivity", "%.1f", False),
+    ("sensitivity", 0.5, 8.0, 0.1, "Sensitivity", "%.1f", False),
     ("smoothness", 1, 30, 1, "Smoothness", "%d", True),
     ("cursor_radius", 24, 200, 1, "Cursor radius", "%d", True),
     ("scroll_delta", 10, 200, 10, "Scroll step", "%d", True),

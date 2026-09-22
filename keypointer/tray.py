@@ -44,7 +44,7 @@ class Tray:
             except Exception:
                 pass
 
-    def _magnet_label(self):
+    def _magnet_label(self, item=None):
         return "Magnet: " + ("on" if self._magnet_enabled else "off")
 
     def _run(self):

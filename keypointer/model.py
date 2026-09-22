@@ -82,7 +82,10 @@ class Settings:
                 vk = raw_bindings.get(action)
                 if isinstance(vk, int) and 1 <= vk < 256:
                     self.bindings[action] = vk
-        self.sensitivity = _clamp(data.get("sensitivity", 2.0), 0.5, 4.0)
+        raw_sensitivity = data.get("sensitivity", 3.0)
+        if data.get("settings_version", 1) < 2 and raw_sensitivity == 2.0:
+            raw_sensitivity = 3.0
+        self.sensitivity = _clamp(raw_sensitivity, 0.5, 8.0)
         self.smoothness = _clamp(data.get("smoothness", 6.0), 1.0, 30.0)
         self.cursor_radius = _clamp_int(data.get("cursor_radius", 32), 24, 200)
         color = data.get("color", "#ff66c4")
@@ -107,6 +110,7 @@ class Settings:
             "magnet_capture": self.magnet_capture,
             "magnet_hold": self.magnet_hold,
             "start_at_login": self.start_at_login,
+            "settings_version": 2,
         }
 
     def clone(self):
@@ -170,6 +174,10 @@ class CursorModel:
         target_vy = axis_y * settings.sensitivity * SPEED
         self.vx += (target_vx - self.vx) * k
         self.vy += (target_vy - self.vy) * k
+        if axis_x == 0.0 and axis_y == 0.0:
+            brake = math.exp(-dt * 30.0)
+            self.vx *= brake
+            self.vy *= brake
         self.tx += self.vx * dt
         self.ty += self.vy * dt
         self.tx = max(float(left), min(float(left + width), self.tx))

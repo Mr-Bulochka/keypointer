@@ -1,9 +1,12 @@
+import logging
 import math
 import os
 import threading
 
 from .commons import cursor_position
 from .model import SnapTarget
+
+_log = logging.getLogger("magnet")
 
 CLICKABLE_NAMES = {
     "ButtonControl",
@@ -55,15 +58,20 @@ class MagnetRunner:
     def _run(self):
         try:
             from uiautomation import ControlFromPoint
+        except ImportError:
+            _log.exception("uiautomation is not available; magnet disabled")
+            return
 
-            while not self._stop.is_set():
+        while not self._stop.is_set():
+            try:
                 if self.enabled:
                     snap = self._scan(ControlFromPoint)
                     if snap is not None:
                         self._last_snap = snap
-                self._stop.wait(0.08)
-        except Exception:
-            pass
+            except Exception:
+                _log.exception("magnet thread crashed")
+            if self._stop.wait(0.08):
+                break
 
     def _scan(self, from_point):
         try:

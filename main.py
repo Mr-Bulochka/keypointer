@@ -19,6 +19,7 @@ MODULES = (
     "keypointer.magnet",
     "keypointer.model",
     "keypointer.mouse",
+    "keypointer.native_cursor",
     "keypointer.overlay",
     "keypointer.settings_view",
     "keypointer.tray",
