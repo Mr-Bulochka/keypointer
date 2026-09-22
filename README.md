@@ -9,7 +9,7 @@ the cursor to interactive elements under it.
 
 ## Download
 
-Grab the latest `Keypointer.exe` from the [Releases](https://github.com/<your-username>/keypointer/releases)
+Grab the latest `Keypointer.exe` from the [Releases](https://github.com/Mr-Bulochka/keypointer/releases)
 page — no installation required, just run it. Or build it yourself (see below).
 
 ## Features
