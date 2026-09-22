@@ -16,7 +16,9 @@ python -m pip install -r requirements.txt
 if errorlevel 1 exit /b 1
 python -m pip install pyinstaller
 if errorlevel 1 exit /b 1
-python -m PyInstaller --noconfirm --clean --onefile --windowed --name Keypointer --icon keypointer.ico main.py
+for /f "delims=" %%d in ('python -c "import uiautomation,os;print(os.path.join(os.path.dirname(uiautomation.__file__),'bin'))"') do set "UA_BIN=%%d"
+if errorlevel 1 exit /b 1
+python -m PyInstaller --noconfirm --clean --onefile --windowed --name Keypointer --icon keypointer.ico --add-binary "%UA_BIN%\UIAutomationClient_VC140_X64.dll;uiautomation\bin" --add-binary "%UA_BIN%\UIAutomationClient_VC140_X86.dll;uiautomation\bin" main.py
 if errorlevel 1 exit /b 1
 echo Build complete: dist\Keypointer.exe
 endlocal
