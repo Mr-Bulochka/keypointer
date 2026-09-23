@@ -37,7 +37,11 @@ class App:
         self._hook = KeyboardHook(self._on_key)
         self._hook.set_binding_keys(self._binding_keys())
         self._hook.set_mover_keys(set(model.MOVE_KEYS))
-        self._tray = Tray(self._open_settings, self._toggle_magnet, self._quit)
+        self._tray = Tray(
+            lambda: self._root.after(0, self._open_settings),
+            lambda: self._root.after(0, self._toggle_magnet),
+            lambda: self._root.after(0, self._quit),
+        )
         self._magnet = MagnetRunner()
         self._magnet.set_enabled(self._settings.magnet_enabled)
         self._clicks = collections.deque()
