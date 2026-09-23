@@ -1,3 +1,4 @@
+import logging
 import threading
 
 import pystray
@@ -16,6 +17,7 @@ class Tray:
         self._magnet_enabled = True
         self._icon = None
         self._thread = None
+        self._log = logging.getLogger("tray")
 
     def start(self):
         if self._thread is not None:
@@ -57,9 +59,10 @@ class Tray:
         icon = pystray.Icon("keypointer", draw_tray_icon(64), "Keypointer", menu)
         self._icon = icon
         try:
-            icon.run()
+            icon.run_detached()
+            icon.visible = True
         except Exception:
-            pass
+            self._log.exception("error while starting the tray icon")
 
     def _on_menu_settings(self, icon, item):
         self._safe(self._on_settings)

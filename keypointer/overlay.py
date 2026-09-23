@@ -14,6 +14,7 @@ from .commons import (
     WM_APP_HIDE,
     WM_APP_QUIT,
     WM_APP_RENDER,
+    WM_APP_SHOW,
     WM_DESTROY,
     SWP_NOACTIVATE,
     SWP_SHOWWINDOW,
@@ -31,6 +32,7 @@ from .commons import (
 WM_NCHITTEST = 0x0084
 HTTRANSPARENT = -1
 SW_HIDE = 0
+SW_SHOWNOACTIVATE = 4
 HWND_TOPMOST = -1
 SWP_NOMOVE = 0x0002
 SWP_NOSIZE = 0x0001
@@ -147,6 +149,7 @@ class CursorOverlay:
         self._old_obj = None
         self._bits = None
         self._size = (0, 0)
+        self._hidden = False
 
     def start(self):
         if self._thread:
@@ -179,6 +182,20 @@ class CursorOverlay:
         with self._lock:
             hwnd = self._hwnd
         if hwnd:
+            user32.PostMessageW(hwnd, WM_APP_HIDE, 0, 0)
+
+    def alive(self):
+        with self._lock:
+            return self._hwnd is not None
+
+    def set_visible(self, visible):
+        with self._lock:
+            hwnd = self._hwnd
+        if not hwnd:
+            return
+        if visible:
+            user32.PostMessageW(hwnd, WM_APP_SHOW, 0, 0)
+        else:
             user32.PostMessageW(hwnd, WM_APP_HIDE, 0, 0)
 
     def stop(self):
@@ -257,16 +274,22 @@ class CursorOverlay:
                         ctypes.byref(blend),
                         ULW_ALPHA,
                     )
-                    user32.SetWindowPos(
-                        hwnd,
-                        HWND_TOPMOST,
-                        0, 0, 0, 0,
-                        SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW,
-                    )
+                    if not self._hidden:
+                        user32.SetWindowPos(
+                            hwnd,
+                            HWND_TOPMOST,
+                            0, 0, 0, 0,
+                            SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW,
+                        )
             except Exception:
                 return 0
             return 0
+        if msg == WM_APP_SHOW:
+            self._hidden = False
+            user32.ShowWindow(hwnd, SW_SHOWNOACTIVATE)
+            return 0
         if msg == WM_APP_HIDE:
+            self._hidden = True
             user32.ShowWindow(hwnd, SW_HIDE)
             return 0
         if msg == WM_APP_QUIT:

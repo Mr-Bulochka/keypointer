@@ -85,8 +85,13 @@ class Settings:
         raw_sensitivity = data.get("sensitivity", 3.0)
         if data.get("settings_version", 1) < 2 and raw_sensitivity == 2.0:
             raw_sensitivity = 3.0
-        self.sensitivity = _clamp(raw_sensitivity, 0.5, 8.0)
-        self.smoothness = _clamp(data.get("smoothness", 6.0), 1.0, 30.0)
+        if data.get("settings_version", 1) < 3 and raw_sensitivity == 3.0:
+            raw_sensitivity = 4.0
+        self.sensitivity = _clamp(raw_sensitivity, 0.5, 12.0)
+        raw_smoothness = data.get("smoothness", 6.0)
+        if data.get("settings_version", 1) < 3 and raw_smoothness == 6.0:
+            raw_smoothness = 12.0
+        self.smoothness = _clamp(raw_smoothness, 1.0, 30.0)
         self.cursor_radius = _clamp_int(data.get("cursor_radius", 32), 24, 200)
         color = data.get("color", "#ff66c4")
         self.color = color if isinstance(color, str) and color else "#ff66c4"
@@ -110,7 +115,7 @@ class Settings:
             "magnet_capture": self.magnet_capture,
             "magnet_hold": self.magnet_hold,
             "start_at_login": self.start_at_login,
-            "settings_version": 2,
+            "settings_version": 3,
         }
 
     def clone(self):
@@ -146,7 +151,9 @@ class SnapTarget:
     dist: float
 
 
-SPEED = 600.0
+SPEED = 900.0
+OVERRIDE_DIST = 12.0
+ESCAPE_COOLDOWN = 0.25
 
 
 class CursorModel:
@@ -159,6 +166,7 @@ class CursorModel:
         self.vx = 0.0
         self.vy = 0.0
         self.pulse = 0.0
+        self.escape = 0.0
         self.locked = False
         self.lock_cx = 0.0
         self.lock_cy = 0.0
@@ -168,32 +176,67 @@ class CursorModel:
         return self.x, self.y
 
     def update(self, dt, axis_x, axis_y, snap, settings):
+        self.pulse = max(0.0, self.pulse - dt * 4.0)
+        self.escape = max(0.0, self.escape - dt)
+        idle = axis_x == 0.0 and axis_y == 0.0
+        if idle:
+            self.vx = 0.0
+            self.vy = 0.0
+            if self.locked:
+                self.locked = False
+                self.escape = ESCAPE_COOLDOWN
+            x, y = cursor_position()
+            self.x = float(x)
+            self.y = float(y)
+            self.tx = self.x
+            self.ty = self.y
+            return False
         k = 1.0 - math.exp(-dt * settings.smoothness)
         left, top, width, height = virtual_screen()
         target_vx = axis_x * settings.sensitivity * SPEED
         target_vy = axis_y * settings.sensitivity * SPEED
         self.vx += (target_vx - self.vx) * k
         self.vy += (target_vy - self.vy) * k
-        if axis_x == 0.0 and axis_y == 0.0:
-            brake = math.exp(-dt * 30.0)
-            self.vx *= brake
-            self.vy *= brake
         self.tx += self.vx * dt
         self.ty += self.vy * dt
         self.tx = max(float(left), min(float(left + width), self.tx))
         self.ty = max(float(top), min(float(top + height), self.ty))
-        if snap is not None and not self.locked and snap.dist <= settings.magnet_capture:
+        just_engaged = False
+        if (snap is not None and not self.locked and self.escape <= 0.0
+                and snap.dist <= settings.magnet_capture):
             self.locked = True
             self.lock_cx = snap.cx
             self.lock_cy = snap.cy
             self.lock_radius = min(max(snap.half_diag, 0.0), 120.0) + settings.magnet_hold
+            self.tx = snap.cx
+            self.ty = snap.cy
+            self.x = self.tx
+            self.y = self.ty
+            self.vx = 0.0
+            self.vy = 0.0
+            just_engaged = True
         if self.locked:
-            fx = self.tx + self.vx * 0.2
-            fy = self.ty + self.vy * 0.2
-            if math.hypot(fx - self.lock_cx, fy - self.lock_cy) > self.lock_radius:
-                self.locked = False
-        dest_x = self.lock_cx if self.locked else self.tx
-        dest_y = self.lock_cy if self.locked else self.ty
-        self.x += (dest_x - self.x) * k
-        self.y += (dest_y - self.y) * k
-        self.pulse = max(0.0, self.pulse - dt * 4.0)
+            released = False
+            if not just_engaged:
+                rx, ry = cursor_position()
+                if math.hypot(rx - self.lock_cx, ry - self.lock_cy) > OVERRIDE_DIST:
+                    self.locked = False
+                    released = True
+                else:
+                    fx = self.tx + self.vx * 0.2
+                    fy = self.ty + self.vy * 0.2
+                    if math.hypot(fx - self.lock_cx, fy - self.lock_cy) > self.lock_radius:
+                        self.locked = False
+                        released = True
+                if released:
+                    self.x = float(rx)
+                    self.y = float(ry)
+                    self.tx = self.x
+                    self.ty = self.y
+                    self.vx = 0.0
+                    self.vy = 0.0
+                    self.escape = ESCAPE_COOLDOWN
+            return just_engaged or released
+        self.x = self.tx
+        self.y = self.ty
+        return True

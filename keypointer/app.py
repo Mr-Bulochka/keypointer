@@ -37,6 +37,7 @@ class App:
         self._hook = KeyboardHook(self._on_key)
         self._hook.set_binding_keys(self._binding_keys())
         self._hook.set_mover_keys(set(model.MOVE_KEYS))
+        self._hook.set_emergency(self._on_emergency)
         self._tray = Tray(
             lambda: self._root.after(0, self._open_settings),
             lambda: self._root.after(0, self._toggle_magnet),
@@ -52,6 +53,8 @@ class App:
         self._trail = []
         self._running = False
         self._dialog_open = False
+        self._ball_on = True
+        self._tick_failures = 0
 
     def _binding_keys(self):
         return set(self._rev)
@@ -109,10 +112,32 @@ class App:
                 self._ops.popleft()()
             except IndexError:
                 break
+            except Exception:
+                self._log.exception("error while processing an operation")
         if self._dialog_open:
             return
-        self._move()
-        self._draw()
+        if not self._overlay.alive():
+            self._restore_native()
+            self._ball_on = False
+            return
+        if not self._ball_on:
+            self._tick_failures = 0
+            return
+        try:
+            self._move()
+            self._draw()
+            self._tick_failures = 0
+        except Exception:
+            self._log.exception("error in the cursor loop")
+            self._tick_failures += 1
+            self._restore_native()
+            self._ball_on = False
+            try:
+                self._overlay.set_visible(False)
+            except Exception:
+                self._log.exception("error while hiding the cursor overlay")
+            if self._tick_failures >= 5:
+                self._quit()
 
     def _move(self):
         now = time.monotonic()
@@ -125,23 +150,20 @@ class App:
         if self._settings.magnet_enabled and self._magnet.enabled:
             snap = self._magnet.pull()
         was_locked = self._cursor.locked
-        self._cursor.update(TICK_MS / 1000.0, ax, ay, snap, self._settings)
+        drive = self._cursor.update(TICK_MS / 1000.0, ax, ay, snap, self._settings)
         if not was_locked and self._cursor.locked:
             self._cursor.pulse = 0.8
         elif was_locked and not self._cursor.locked:
             self._cursor.pulse = 0.4
-        if (
-            ax != 0.0
-            or ay != 0.0
-            or self._cursor.locked
-            or abs(self._cursor.vx) + abs(self._cursor.vy) >= IDLE_SPEED
-        ):
+        if drive:
             mouse.move_to(self._cursor.x, self._cursor.y)
-        else:
+        elif not self._cursor.locked:
             self._resync()
         self._fire_clicks(now)
 
     def _draw(self):
+        if not self._ball_on:
+            return
         decay = TRAIL_DECAY * TICK_MS / 1000.0
         trail = []
         for px, py, pa in self._trail:
@@ -211,10 +233,48 @@ class App:
 
     def _resync(self):
         x, y = cursor_position()
+        self._cursor.x = float(x)
+        self._cursor.y = float(y)
         self._cursor.tx = float(x)
         self._cursor.ty = float(y)
         self._cursor.vx = 0.0
         self._cursor.vy = 0.0
+        self._cursor.locked = False
+
+    def _restore_native(self):
+        if native_cursor.hidden():
+            try:
+                native_cursor.restore()
+            except Exception:
+                self._log.exception("error while restoring the system cursor")
+
+    def _toggle_ball_cursor(self):
+        if self._dialog_open:
+            return
+        if self._ball_on:
+            self._ball_on = False
+            try:
+                self._overlay.set_visible(False)
+            except Exception:
+                self._log.exception("error while hiding the cursor overlay")
+            self._restore_native()
+        else:
+            self._ball_on = True
+            self._resync()
+            try:
+                self._overlay.set_visible(True)
+            except Exception:
+                self._log.exception("error while showing the cursor overlay")
+            try:
+                native_cursor.hide()
+            except Exception:
+                self._log.exception("error while hiding the system cursor")
+
+    def _on_emergency(self, name):
+        if name == "toggle_cursor":
+            self._ops.append(self._toggle_ball_cursor)
+        elif name == "quit":
+            self._ops.append(self._quit)
 
     def _open_settings(self):
         if self._dialog_open:
@@ -251,10 +311,15 @@ class App:
         except Exception:
             self._log.exception("error while re-enabling key tracking")
         self._resync()
-        try:
-            native_cursor.hide()
-        except Exception:
-            self._log.exception("error while hiding the system cursor")
+        if self._ball_on:
+            try:
+                native_cursor.hide()
+            except Exception:
+                self._log.exception("error while hiding the system cursor")
+            try:
+                self._overlay.set_visible(True)
+            except Exception:
+                self._log.exception("error while showing the cursor overlay")
 
     def _apply_settings(self, new):
         self._settings = new

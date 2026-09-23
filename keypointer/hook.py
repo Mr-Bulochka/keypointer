@@ -51,6 +51,7 @@ user32.GetMessageW.argtypes = [
 ]
 
 MODIFIERS = (VK_CONTROL, VK_MENU, VK_SHIFT)
+EMERGENCY_KEYS = {0x4B: "toggle_cursor", 0x51: "quit"}
 
 
 class KeyboardHook:
@@ -65,6 +66,7 @@ class KeyboardHook:
         self._mods = set()
         self._capturing = False
         self._movers = set()
+        self._emergency = None
         self._lock = threading.Lock()
 
     def set_binding_keys(self, keys):
@@ -78,6 +80,10 @@ class KeyboardHook:
     def set_mover_keys(self, keys):
         with self._lock:
             self._movers = set(keys)
+
+    def set_emergency(self, handler):
+        with self._lock:
+            self._emergency = handler
 
     def start(self):
         if self._thread:
@@ -143,8 +149,15 @@ class KeyboardHook:
                     capturing = self._capturing
                     watch = self._watch
                     movers = self._movers
+                    emergency = self._emergency
                 passthrough = bool(self._mods)
                 callback = self._on_key
+                if vk in EMERGENCY_KEYS and VK_CONTROL in self._mods and VK_MENU in self._mods:
+                    if emergency is None:
+                        return user32.CallNextHookEx(self._handle, n_code, w_param, l_param)
+                    if not is_up and repeat == 0:
+                        emergency(EMERGENCY_KEYS[vk])
+                    return 1
                 if capturing:
                     if passthrough:
                         return user32.CallNextHookEx(self._handle, n_code, w_param, l_param)
@@ -157,8 +170,7 @@ class KeyboardHook:
                     return 1
                 if vk in movers:
                     if (
-                        passthrough
-                        or user32.GetAsyncKeyState(0x5B) & 0x8000
+                        user32.GetAsyncKeyState(0x5B) & 0x8000
                         or user32.GetAsyncKeyState(0x5C) & 0x8000
                     ):
                         return user32.CallNextHookEx(self._handle, n_code, w_param, l_param)
