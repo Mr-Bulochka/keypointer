@@ -1,5 +1,6 @@
 import ctypes
 import ctypes.wintypes as wintypes
+import logging
 import threading
 
 from .commons import (
@@ -36,6 +37,18 @@ SW_SHOWNOACTIVATE = 4
 HWND_TOPMOST = -1
 SWP_NOMOVE = 0x0002
 SWP_NOSIZE = 0x0001
+
+_log = logging.getLogger("overlay")
+
+
+def _api_error():
+    code = kernel32.GetLastError()
+    if not code:
+        return f"error {code}"
+    try:
+        return f"{ctypes.WinError(code)}"
+    except OSError:
+        return f"error {code}"
 
 
 class SIZE(ctypes.Structure):
@@ -216,6 +229,7 @@ class CursorOverlay:
         wndclass.lpszClassName = "KeypointerCursorOverlay"
         atom = user32.RegisterClassW(ctypes.byref(wndclass))
         if not atom:
+            _log.error("overlay: RegisterClassW failed, err=%s", _api_error())
             self._ready.set()
             return
         hwnd = user32.CreateWindowExW(
@@ -231,6 +245,7 @@ class CursorOverlay:
             self._hwnd = hwnd
         self._ready.set()
         if not hwnd:
+            _log.error("overlay: CreateWindowExW failed, err=%s", _api_error())
             user32.UnregisterClassW("KeypointerCursorOverlay", hinst)
             return
         try:
@@ -263,7 +278,7 @@ class CursorOverlay:
                     src = wintypes.POINT(0, 0)
                     dst = wintypes.POINT(left, top)
                     size = SIZE(w, h)
-                    user32.UpdateLayeredWindow(
+                    ok = user32.UpdateLayeredWindow(
                         hwnd,
                         None,
                         ctypes.byref(dst),
@@ -274,14 +289,22 @@ class CursorOverlay:
                         ctypes.byref(blend),
                         ULW_ALPHA,
                     )
-                    if not self._hidden:
-                        user32.SetWindowPos(
+                    if not ok:
+                        _log.warning(
+                            "overlay: UpdateLayeredWindow failed, err=%s", _api_error()
+                        )
+                    elif not self._hidden:
+                        if not user32.SetWindowPos(
                             hwnd,
                             HWND_TOPMOST,
                             0, 0, 0, 0,
                             SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW,
-                        )
+                        ):
+                            _log.warning(
+                                "overlay: SetWindowPos failed, err=%s", _api_error()
+                            )
             except Exception:
+                _log.exception("overlay: error in WM_APP_RENDER handler")
                 return 0
             return 0
         if msg == WM_APP_SHOW:
@@ -320,8 +343,13 @@ class CursorOverlay:
             None, ctypes.byref(bmi), DIB_RGB_COLORS, ctypes.byref(bits), None, 0
         )
         if not dib:
+            _log.error("overlay: CreateDIBSection failed, err=%s", _api_error())
             return
         hdc = gdi32.CreateCompatibleDC(None)
+        if not hdc:
+            _log.error("overlay: CreateCompatibleDC failed, err=%s", _api_error())
+            gdi32.DeleteObject(dib)
+            return
         old = gdi32.SelectObject(hdc, dib)
         self._dib = dib
         self._hdc = hdc

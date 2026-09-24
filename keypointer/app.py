@@ -121,7 +121,6 @@ class App:
             self._ball_on = False
             return
         if not self._ball_on:
-            self._tick_failures = 0
             return
         try:
             self._move()
